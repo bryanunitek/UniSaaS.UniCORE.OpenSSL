@@ -108,18 +108,18 @@ GitHub pull requests. For more details, see [Contributing](#contributing).
 Build and Install
 =================
 
-After obtaining the Source, have a look at the [INSTALL](INSTALL.md) file for
+After obtaining the Source, have a look at the [INSTALL](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/INSTALL.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/INSTALL.md)) file for
 detailed instructions about building and installing OpenSSL. For some
 platforms, the installation instructions are amended by a platform specific
 document.
 
- * [Notes for UNIX-like platforms](NOTES-UNIX.md)
- * [Notes for Android platforms](NOTES-ANDROID.md)
- * [Notes for Windows platforms](NOTES-WINDOWS.md)
- * [Notes for the DOS platform with DJGPP](NOTES-DJGPP.md)
- * [Notes for the OpenVMS platform](NOTES-VMS.md)
- * [Notes on Perl](NOTES-PERL.md)
- * [Notes on Valgrind](NOTES-VALGRIND.md)
+ * [Notes for UNIX-like platforms](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-UNIX.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-UNIX.md))
+ * [Notes for Android platforms](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-ANDROID.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-ANDROID.md))
+ * [Notes for Windows platforms](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-WINDOWS.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-WINDOWS.md))
+ * [Notes for the DOS platform with DJGPP](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-DJGPP.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-DJGPP.md))
+ * [Notes for the OpenVMS platform](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-VMS.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-VMS.md))
+ * [Notes on Perl](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-PERL.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-PERL.md))
+ * [Notes on Valgrind](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/NOTES-VALGRIND.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/NOTES-VALGRIND.md))
 
 Specific notes on upgrading to OpenSSL 3.x from previous versions can be found
 in the [ossl-guide-migration(7ossl)] manual page.
@@ -133,9 +133,9 @@ README Files
 There are some README.md files in the top level of the source distribution
 containing additional information on specific topics.
 
- * [Information about the OpenSSL QUIC protocol implementation](README-QUIC.md)
- * [Information about the OpenSSL Provider architecture](README-PROVIDERS.md)
- * [Information about using the OpenSSL FIPS validated module](README-FIPS.md)
+ * [Information about the OpenSSL QUIC protocol implementation](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/README-QUIC.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/README-QUIC.md))
+ * [Information about the OpenSSL Provider architecture](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/README-PROVIDERS.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/README-PROVIDERS.md))
+ * [Information about using the OpenSSL FIPS validated module](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/README-FIPS.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/README-FIPS.md))
 
 The OpenSSL Guide
 -----------------
@@ -180,13 +180,13 @@ Support
 =======
 
 There are various ways to get in touch. The correct channel depends on
-your requirement. See the [SUPPORT](SUPPORT.md) file for more details.
+your requirement. See the [SUPPORT](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/SUPPORT.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/SUPPORT.md)) file for more details.
 
 Contributing
 ============
 
 If you are interested and willing to contribute to the OpenSSL project,
-please take a look at the [CONTRIBUTING](CONTRIBUTING.md) file.
+please take a look at the [CONTRIBUTING](https://git.unitek-systems.com/UniCORE/UniSaaS.UniCORE.OpenSSL/src/branch/main/CONTRIBUTING.md) (mirror: [GitHub](https://github.com/bryanunitek/UniSaaS.UniCORE.OpenSSL/blob/main/CONTRIBUTING.md)) file.
 
 Legalities
 ==========
