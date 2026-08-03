@@ -29,7 +29,35 @@ OpenSSL Releases
 
 -----------
 
+### Changes between 4.0.1 and 4.0.2 [xx XXX xxxx]
+
+ * Add client-side validation for TLS 1.3 session ticket lifetimes.
+
+   In accordance with [RFC 8446 Section 4.6.1](https://datatracker.ietf.org/doc/html/rfc8446#section-4.6.1),
+   TLS 1.3 clients must not cache session tickets
+   for longer than 7 days (604800 seconds).
+   When processing a new session ticket message with a
+   `ticket_lifetime_hint` value greater than 7 days,
+   the client now caps the lifetime to the
+   maximum permitted value of 7 days (604800 seconds).
+
+   *Abel Thomas*
+
 ### Changes between 4.0.0 and 4.0.1 [9 Jun 2026]
+
+ * Fixed excessive allocation of the handshake message buffer (aka HollowByte)
+
+   Previously, we would allocate a buffer large enough to hold the full size of
+   an incoming handshake message as advertised by the peer. This could be quite
+   large (although it is bounded, e.g. for ClientHello this is approximately
+   128 KiB). If the peer then fails to send the full handshake message, then the
+   endpoint is left waiting for the remainder of the message to arrive and the
+   memory is still allocated (i.e. a Slowloris attack). To prevent this, we
+   incrementally grow the buffer as we receive the data.
+
+   This issue was reported by Okta Red Team.
+
+   *Matt Caswell*
 
  * Fixed heap use-after-free in `PKCS7_verify()`.
 
@@ -1072,7 +1100,9 @@ OpenSSL Releases
    *Tomáš Mráz*
 
  * Removed deprecated functions `ERR_get_state()`, `ERR_remove_state()`
-   and `ERR_remove_thread_state()`. The `ERR_STATE` object is now always opaque.
+   and `ERR_remove_thread_state()`, as well as the `ERR_FLAG_MARK`,
+   `ERR_FLAG_CLEAR` and `ERR_NUM_ERRORS` macros. The `ERR_STATE` object is now
+   always opaque.
    <!-- https://github.com/openssl/openssl/pull/30005 -->
 
    *Tomáš Mráz*
