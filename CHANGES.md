@@ -99,7 +99,7 @@ OpenSSL 4.0
 
    Severity: Low
 
-   Issue summary: The OpenSSL QUIC server, when configured to not preform
+   Issue summary: The OpenSSL QUIC server, when configured to not perform
    address validation, can be forced to count incoming packets multiple times
    in its unvalidated credit computation, leading to a violation
    of the [RFC 9000] unvalidated connection amplification limit of 3 times
@@ -137,7 +137,8 @@ OpenSSL 4.0
 
    *Alexandr Nedvědický*
 
- * Fixed a timing side-channel in scalar multiplication for mon-NIST EC curves.
+ * Fixed a timing side-channel leak in generic elliptic curve scalar
+   multiplication.
 
    Severity: Low
 
@@ -230,7 +231,7 @@ OpenSSL 4.0
    flow control for streams to make the QUIC stack receive ~100 MiB of memory
    instead of 768 KiB (default flow control window size).
 
-   Reportedby: Moltenbit, Bhabani Sankar Das, Saiyowa Security Team, mzfr.
+   Reported by: Moltenbit, Bhabani Sankar Das, Saiyowa Security Team, mzfr.
 
    ([CVE-2026-75804])
 
@@ -1400,6 +1401,14 @@ OpenSSL 4.0
    <!-- https://github.com/openssl/openssl/pull/29721 -->
 
    *Bob Beck*
+
+ * Added a `-ta_in_ip_extracert` option for the `openssl cmp` command, that sets
+   `OSSL_CMP_OPT_PERMIT_TA_IN_EXTRACERTS_FOR_IR` option for the `OSSL_CMP_CTX`
+   object.
+
+   This work was sponsored by Siemens AG.
+
+   *David von Oheimb*
 
  * `X509_ALGOR_set_md()` function now returns a value indicating success
     or failure.
@@ -4486,7 +4495,7 @@ breaking changes, and mappings for the large list of deprecated functions.
 
  * Fixed a bug in the function `OCSP_basic_verify` that verifies the signer
    certificate on an OCSP response. The bug caused the function in the case
-   where the (non-default) flag OCSP_NOCHECKS is used to return a postivie
+   where the (non-default) flag OCSP_NOCHECKS is used to return a positive
    response (meaning a successful verification) even in the case where the
    response signing certificate fails to verify.
 
@@ -20284,7 +20293,7 @@ s-cbc           3624.96k     5258.21k     5530.91k     5624.30k     5628.26k
    The new configuration file reading functions are:
 
            NCONF_new, NCONF_free, NCONF_load, NCONF_load_fp, NCONF_load_bio,
-           NCONF_get_section, NCONF_get_string, NCONF_get_numbre
+           NCONF_get_section, NCONF_get_string, NCONF_get_number
 
            NCONF_default, NCONF_WIN32
 
