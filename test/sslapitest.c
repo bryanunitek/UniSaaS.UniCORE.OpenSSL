@@ -42,8 +42,32 @@
 #include "internal/ktls.h"
 #include "internal/ssl_unwrap.h"
 #include "../ssl/ssl_local.h"
+#include "../ssl/statem/statem_local.h"
 #include "../ssl/record/methods/recmethod_local.h"
 #include "filterprov.h"
+
+/*
+ * PSK pre binder overhead =
+ *  2 bytes for TLSEXT_TYPE_psk
+ *  2 bytes for extension length
+ *  2 bytes for identities list length
+ *  2 bytes for identity length
+ *  4 bytes for obfuscated_ticket_age
+ *  2 bytes for binder list length
+ *  1 byte for binder length
+ * The above excludes the number of bytes for the identity itself and the
+ * subsequent binder bytes
+ */
+#define PSK_PRE_BINDER_OVERHEAD (2 + 2 + 2 + 2 + 4 + 2 + 1)
+/* Each further identity adds its identity length and obfuscated_ticket_age */
+#define PSK_IDENTITY_OVERHEAD (2 + 4)
+#define PSK_BINDERS_LIST_LEN_BYTES 2
+#define PSK_BINDER_LEN_BYTES 1
+/*
+ * Initial packet buffer length in test_psk_binder_growth(): the first binder
+ * ends exactly here, so allocating the second one must grow the buffer.
+ */
+#define PSK_GROWTH_BUFLEN 256
 
 #undef OSSL_NO_USABLE_TLS1_3
 #if defined(OPENSSL_NO_TLS1_3) \
@@ -3377,6 +3401,96 @@ end:
     clientpsk = serverpsk = NULL;
 
     return testresult;
+}
+
+/* Both PSK binders must remain valid if allocating the second grows the packet. */
+static int test_psk_binder_growth(int idx)
+{
+#ifdef OSSL_NO_USABLE_TLS1_3
+    return TEST_skip("TLSv1.3 is not usable");
+#else
+    SSL_CTX *ctx = NULL;
+    SSL *ssl = NULL;
+    SSL_CONNECTION *sc;
+    SSL_SESSION *sess = NULL;
+    BUF_MEM *buf = NULL;
+    WPACKET pkt = { 0 };
+    EVP_MD *md = NULL;
+    const char *tick = "a ticket";
+    size_t tick_len = strlen(tick);
+    const char *psksession_id = "Identity";
+    size_t psksession_id_len = strlen(psksession_id);
+    size_t hashsize = idx == 0 ? SHA256_DIGEST_LENGTH : SHA384_DIGEST_LENGTH;
+    /* Bytes before the extension, chosen so the first binder ends at the buffer end */
+    size_t prefix = PSK_GROWTH_BUFLEN
+        - (PSK_PRE_BINDER_OVERHEAD + PSK_IDENTITY_OVERHEAD + tick_len
+            + psksession_id_len + hashsize);
+    /* Offset of the binders list, i.e. the end of the data the binders cover */
+    size_t binderoffset = PSK_GROWTH_BUFLEN - hashsize - PSK_BINDER_LEN_BYTES
+        - PSK_BINDERS_LIST_LEN_BYTES;
+    unsigned char *resbinder, *pskbinder;
+    size_t written;
+    uintptr_t original;
+    int ret = 0;
+
+    if (!TEST_ptr(ctx = SSL_CTX_new_ex(libctx, NULL, TLS_client_method()))
+        || !TEST_ptr(ssl = SSL_new(ctx))
+        || !TEST_ptr(sess = create_a_psk(ssl, hashsize))
+        || !TEST_ptr(sess->ext.tick = OPENSSL_memdup(tick, tick_len)))
+        goto end;
+    sess->ext.ticklen = tick_len;
+    sess->ext.tick_lifetime_hint = 7200;
+    if (!TEST_true(SSL_set_session(ssl, sess)))
+        goto end;
+    SSL_set_connect_state(ssl);
+    sc = SSL_CONNECTION_FROM_SSL(ssl);
+    sc->version = TLS1_3_VERSION;
+    /* Secure-buffer growth allocates before freeing, forcing relocation. */
+    if (!TEST_ptr(sc->psksession = create_a_psk(ssl, hashsize))
+        || !TEST_ptr(sc->psksession_id = OPENSSL_memdup(psksession_id, psksession_id_len))
+        || !TEST_ptr(md = EVP_MD_fetch(libctx, idx == 0 ? "SHA256" : "SHA384", NULL))
+        || !TEST_ptr(buf = BUF_MEM_new_ex(BUF_MEM_FLAG_SECURE))
+        || !TEST_size_t_eq(BUF_MEM_grow(buf, PSK_GROWTH_BUFLEN), PSK_GROWTH_BUFLEN))
+        goto end;
+    sc->psksession_id_len = psksession_id_len;
+    original = (uintptr_t)buf->data;
+    if (!TEST_true(WPACKET_init(&pkt, buf)))
+        goto end;
+    /* The first binder ends at the buffer end; the second must grow the packet. */
+    if (!TEST_true(WPACKET_put_bytes_u8(&pkt, SSL3_MT_CLIENT_HELLO))
+        || !TEST_true(WPACKET_start_sub_packet_u24(&pkt))
+        || !TEST_true(WPACKET_memset(&pkt, 0, prefix - SSL3_HM_HEADER_LENGTH))
+        || !TEST_int_eq(tls_construct_ctos_psk(sc, &pkt, SSL_EXT_CLIENT_HELLO,
+                            NULL, 0),
+            EXT_RETURN_SENT)
+        || !TEST_true(WPACKET_close(&pkt))
+        || !TEST_true(WPACKET_finish(&pkt))
+        || !TEST_true(WPACKET_get_total_written(&pkt, &written))
+        || !TEST_size_t_eq(written,
+            PSK_GROWTH_BUFLEN + PSK_BINDER_LEN_BYTES + hashsize)
+        || !TEST_true(original != (uintptr_t)buf->data))
+        goto end;
+    resbinder = (unsigned char *)buf->data + PSK_GROWTH_BUFLEN - hashsize;
+    pskbinder = (unsigned char *)buf->data + PSK_GROWTH_BUFLEN + PSK_BINDER_LEN_BYTES;
+
+    if (!TEST_int_eq(tls_psk_do_binder(sc, md, (unsigned char *)buf->data,
+                         binderoffset, resbinder, NULL, sess, 0, 0),
+            1)
+        || !TEST_int_eq(tls_psk_do_binder(sc, md, (unsigned char *)buf->data,
+                            binderoffset, pskbinder, NULL, sc->psksession,
+                            0, 1),
+            1))
+        goto end;
+    ret = 1;
+end:
+    WPACKET_cleanup(&pkt);
+    EVP_MD_free(md);
+    BUF_MEM_free(buf);
+    SSL_SESSION_free(sess);
+    SSL_free(ssl);
+    SSL_CTX_free(ctx);
+    return ret;
+#endif
 }
 
 static int test_extra_tickets(int idx)
@@ -11883,6 +11997,106 @@ end:
     return testresult;
 }
 #endif /* OPENSSL_NO_TLS1_2 */
+
+/*
+ * The ClientHello raw extension array is sized when the ClientHello is
+ * collected. Switching to an SSL_CTX with more custom extensions from the
+ * ClientHello callback must not make the later parse walk past its end, and
+ * the new SSL_CTX must get the custom extension the client sent, which is the
+ * last of its own.
+ */
+struct cust_ext_switch_st {
+    SSL_CTX *newctx;
+    int retry;
+    int parsed; /* Times the new SSL_CTX parsed the client's extension */
+};
+
+static int cust_ext_switch_parse_cb(SSL *s, unsigned int ext_type,
+    unsigned int context, const unsigned char *in, size_t inlen, X509 *x,
+    size_t chainidx, int *al, void *parse_arg)
+{
+    int *parsed = parse_arg;
+
+    if (ext_type == 0xff4f)
+        (*parsed)++;
+    return 1;
+}
+
+static int cust_ext_switch_ch_cb(SSL *s, int *al, void *arg)
+{
+    struct cust_ext_switch_st *data = arg;
+
+    if (SSL_get_SSL_CTX(s) == data->newctx)
+        return SSL_CLIENT_HELLO_SUCCESS;
+    if (SSL_set_SSL_CTX(s, data->newctx) == NULL) {
+        *al = SSL_AD_INTERNAL_ERROR;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    return data->retry ? SSL_CLIENT_HELLO_RETRY : SSL_CLIENT_HELLO_SUCCESS;
+}
+
+/*
+ * Test 0: The callback switches the SSL_CTX and returns success
+ * Test 1: The callback switches the SSL_CTX and returns retry, so the
+ *         handshake goes on with the new SSL_CTX, which has no callback
+ */
+static int test_ctx_switch_more_custom_exts(int idx)
+{
+    SSL_CTX *sctx = NULL, *newsctx = NULL, *cctx = NULL;
+    SSL *serverssl = NULL, *clientssl = NULL;
+    struct cust_ext_switch_st cbdata;
+    unsigned int i;
+    int testresult = 0;
+
+    memset(&cbdata, 0, sizeof(cbdata));
+
+    if (!TEST_true(create_ssl_ctx_pair(libctx, TLS_server_method(),
+            TLS_client_method(), 0, 0, &sctx, &cctx, cert, privkey))
+        || !TEST_true(create_ssl_ctx_pair(libctx, TLS_server_method(), NULL,
+            0, 0, &newsctx, NULL, cert, privkey)))
+        goto end;
+
+    for (i = 0; i < 64; i++)
+        if (!TEST_true(SSL_CTX_add_custom_ext(newsctx, 0xff10 + i,
+                SSL_EXT_CLIENT_HELLO, NULL, NULL, NULL,
+                cust_ext_switch_parse_cb, &cbdata.parsed)))
+            goto end;
+
+    /* The client sends 0xff4f empty */
+    if (!TEST_true(SSL_CTX_add_custom_ext(cctx, 0xff4f, SSL_EXT_CLIENT_HELLO,
+            NULL, NULL, NULL, NULL, NULL)))
+        goto end;
+
+    cbdata.newctx = newsctx;
+    cbdata.retry = idx == 1;
+    SSL_CTX_set_client_hello_cb(sctx, cust_ext_switch_ch_cb, &cbdata);
+
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+            NULL, NULL)))
+        goto end;
+
+    if (cbdata.retry
+        && (!TEST_false(create_ssl_connection(serverssl, clientssl,
+                SSL_ERROR_WANT_CLIENT_HELLO_CB))
+            || !TEST_int_eq(SSL_get_error(serverssl, -1),
+                SSL_ERROR_WANT_CLIENT_HELLO_CB)))
+        goto end;
+
+    if (!TEST_true(create_ssl_connection(serverssl, clientssl,
+            SSL_ERROR_NONE))
+        || !TEST_ptr_eq(SSL_get_SSL_CTX(serverssl), newsctx)
+        || !TEST_int_eq(cbdata.parsed, 1))
+        goto end;
+
+    testresult = 1;
+end:
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(newsctx);
+    SSL_CTX_free(cctx);
+    return testresult;
+}
 #endif
 
 #ifndef OPENSSL_NO_TLS1_2
@@ -15628,6 +15842,7 @@ int setup_tests(void)
     ADD_ALL_TESTS(test_stateful_tickets, 3);
     ADD_ALL_TESTS(test_stateless_tickets, 3);
     ADD_TEST(test_psk_tickets);
+    ADD_ALL_TESTS(test_psk_binder_growth, 2);
     ADD_ALL_TESTS(test_extra_tickets, 6);
 #endif
     ADD_ALL_TESTS(test_ssl_set_bio, TOTAL_SSL_SET_BIO_TESTS);
@@ -15748,6 +15963,7 @@ int setup_tests(void)
 #endif
 #if !defined(OPENSSL_NO_TLS1_2) || !defined(OSSL_NO_USABLE_TLS1_3)
     ADD_ALL_TESTS(test_sigalg_ctx_switch, 4);
+    ADD_ALL_TESTS(test_ctx_switch_more_custom_exts, 2);
     ADD_ALL_TESTS(test_sigalg_ctx_switch_cert_cb, 2);
 #ifndef OPENSSL_NO_TLS1_2
     ADD_TEST(test_sigalg_ctx_switch_reneg);
