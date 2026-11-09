@@ -107,7 +107,7 @@ jobs:
         util/wrap.pl -fips apps/openssl list -providers | grep 'name: CI FIPS Provider for OpenSSL$'
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@basic-gcc"
         path: artifacts.tar.gz
@@ -132,7 +132,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@basic-clang"
         path: artifacts.tar.gz
@@ -157,7 +157,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@linux-arm64"
         path: artifacts.tar.gz
@@ -223,7 +223,7 @@ jobs:
           ".github/workflows/make-test"
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@linux-x86"
         path: artifacts.tar.gz
@@ -235,7 +235,7 @@ jobs:
       with:
         persist-credentials: false
     - name: config
-      uses: cross-platform-actions/action@faa0c6197e94aacf1c5956460152c8380d3560a5 #v1.5.0
+      uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 #v1.6.0
       with:
         operating_system: freebsd
         version: "14.4"
@@ -244,21 +244,21 @@ jobs:
           sudo pkg install -y gcc perl5
           ./config --strict-warnings enable-fips enable-lms enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-trace
     - name: config dump
-      uses: cross-platform-actions/action@faa0c6197e94aacf1c5956460152c8380d3560a5 #v1.5.0
+      uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 #v1.6.0
       with:
         operating_system: freebsd
         version: "14.4"
         shutdown_vm: false
         run: ./configdata.pm --dump
     - name: make
-      uses: cross-platform-actions/action@faa0c6197e94aacf1c5956460152c8380d3560a5 #v1.5.0
+      uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 #v1.6.0
       with:
         operating_system: freebsd
         version: "14.4"
         shutdown_vm: false
         run: make -j4
     - name: make test
-      uses: cross-platform-actions/action@faa0c6197e94aacf1c5956460152c8380d3560a5 #v1.5.0
+      uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 #v1.6.0
       with:
         operating_system: freebsd
         version: "14.4"
@@ -267,7 +267,7 @@ jobs:
           .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@BSD-x86_64"
         path: artifacts.tar.gz
@@ -292,7 +292,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@minimal"
         path: artifacts.tar.gz
@@ -317,7 +317,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@no-deprecated"
         path: artifacts.tar.gz
@@ -342,13 +342,13 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@no-shared-ubuntu"
         path: artifacts.tar.gz
 
   no-shared-macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
     - uses: actions/checkout@v6
       with:
@@ -367,9 +367,9 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
-        name: "ci@no-shared-macos-14"
+        name: "ci@no-shared-macos-15"
         path: artifacts.tar.gz
 
   non-caching:
@@ -396,7 +396,7 @@ jobs:
       run: .github/workflows/make-test OPENSSL_TEST_RAND_ORDER=0 TESTS="-test_fuzz* -test_ssl_* -test_sslapi -test_evp -test_cmp_http -test_verify -test_cms -test_store -test_enc -[01][0-9]"
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@non-caching"
         path: artifacts.tar.gz
@@ -425,7 +425,7 @@ jobs:
       run: .github/workflows/make-test OPENSSL_TEST_RAND_ORDER=0
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@address_ub_sanitizer"
         path: artifacts.tar.gz
@@ -454,7 +454,7 @@ jobs:
       run: .github/workflows/make-test OPENSSL_TEST_RAND_ORDER=0 TESTS="test_fuzz*"
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@fuzz_tests"
         path: artifacts.tar.gz
@@ -485,7 +485,7 @@ jobs:
       run: .github/workflows/make-test OPENSSL_TEST_RAND_ORDER=0
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@memory_sanitizer"
         path: artifacts.tar.gz
@@ -514,7 +514,7 @@ jobs:
       run: .github/workflows/make-test V=1 TESTS="test_lhash test_threads test_internal_provider test_provfetch test_provider test_pbe test_evp_kdf test_pkcs12 test_store test_evp test_quic*"
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@threads_sanitizer"
         path: artifacts.tar.gz
@@ -541,7 +541,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@enable_non-default_options"
         path: artifacts.tar.gz
@@ -574,7 +574,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@full_featured"
         path: artifacts.tar.gz
@@ -599,7 +599,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@no-legacy"
         path: artifacts.tar.gz
@@ -624,7 +624,7 @@ jobs:
       run: .github/workflows/make-test
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@legacy"
         path: artifacts.tar.gz
@@ -668,7 +668,7 @@ jobs:
       working-directory: ./build
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@out-of-readonly-source-and-install-ubuntu"
         path: build/artifacts.tar.gz
@@ -710,7 +710,7 @@ jobs:
       working-directory: ./build
     - name: save artifacts
       if: success() || failure()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: "ci@out-of-readonly-source-and-install-macos-15"
         path: build/artifacts.tar.gz
@@ -739,7 +739,7 @@ jobs:
       run: ./config --strict-warnings --banner=Configured --debug enable-rc5 enable-md2 enable-weak-ssl-ciphers enable-zlib enable-ec_nistp_64_gcc_128 enable-external-tests no-fips && perl configdata.pm --dump
     - name: make
       run: make -s -j4
-    - uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
       with:
         toolchain: stable
     - name: get cpu info
@@ -831,10 +831,10 @@ jobs:
     - name: make
       run: make -s -j4
     - name: Setup Python
-      uses: actions/setup-python@v6.0.0
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.PYTHON }}
-    - uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
       with:
         toolchain: stable
     - name: get cpu info
