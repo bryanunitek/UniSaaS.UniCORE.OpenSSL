@@ -9,6 +9,7 @@
 use strict;
 use warnings;
 
+use Config;
 use Cwd qw(abs_path);
 use IPC::Cmd;
 use OpenSSL::Test;
@@ -38,6 +39,13 @@ plan skip_all => "not run under memory sanitizer"
 plan skip_all => "not run under undefined behavior sanitizer"
     unless disabled("ubsan");
 
+# A fuzz build's static libraries carry the fuzzer compiler's
+# instrumentation (__afl_area_ptr, __sanitizer_cov_trace_pc_guard_*),
+# which a plain host-compiler consumer link cannot satisfy, just like
+# the sanitizer runtimes above.
+plan skip_all => "not run under fuzz instrumentation"
+    if config('options') =~ /enable-fuzz-afl|enable-fuzz-libfuzzer/;
+
 # We require cmake 3.22 or later
 my $cmake_version_output = `cmake --version`;
 my ($cmake_major, $cmake_minor) =
@@ -60,13 +68,48 @@ my @cmake_configure =
      # The dummy programs are run through the same wrapper that the rest
      # of the test suite uses, so the loader path is set up for them
      "-DOPENSSL_WRAP_PL=" . abs_path(bldtop_file("util", "wrap.pl")));
+
+# Find out what generator cmake will use: $ENV{CMAKE_GENERATOR} when set,
+# otherwise the default, which `cmake --system-information` reports.
+my $cmake_generator = $ENV{CMAKE_GENERATOR};
+if (!defined $cmake_generator) {
+    foreach (`cmake --system-information`) {
+        if (/^CMAKE_GENERATOR +"(.*?)"$/) {
+            $cmake_generator = $1;
+            last;
+        }
+    }
+}
+# Only the Visual Studio generators support platform selection (-A);
+# other generators reject it with a hard error.  With those, the
+# architecture is determined by the compiler that cmake finds in the
+# environment instead.
+my $platform_flag_ok =
+    defined $cmake_generator && $cmake_generator =~ /Visual Studio/;
+
 # With Visual Studio generators, cmake defaults to the x64 platform.
 # The dummy programs must match the architecture of the OpenSSL build,
 # so say it explicitly when it deviates from that default.
 push @cmake_configure, "-A", "Win32"
-    if config('target') =~ /^VC-WIN32/;
+    if config('target') =~ /^VC-WIN32/ && $platform_flag_ok;
 push @cmake_configure, "-A", "ARM64"
-    if config('target') =~ /^VC-WIN64-ARM/;
+    if config('target') =~ /^VC-WIN64-ARM/ && $platform_flag_ok;
+
+# cmake defaults single-config builds with MSVC to Debug, which pulls in
+# the debug CRT (msvcr*d.dll); minimal toolchain environments carry only
+# the release CRT.  Build the consumer project in Release, like the
+# OpenSSL build itself.  Multi-config generators ignore
+# CMAKE_BUILD_TYPE; with those, the configuration is selected at build
+# time (--config) instead.
+push @cmake_configure, "-DCMAKE_BUILD_TYPE=Release"
+    if config('target') =~ /^VC-/;
+
+# A no-shared OpenSSL build links against the static CRT (Configurations
+# sets /MT for that case); the dummy programs must use the same runtime,
+# or they import msvcr*.dll, which a minimal toolchain environment need
+# not carry.
+push @cmake_configure, "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
+    if config('target') =~ /^VC-/ && disabled("shared");
 
 # With Unix generators, cmake compiles the consumer project with the
 # host compiler's default word size, which may deviate from the OpenSSL
@@ -116,6 +159,71 @@ ok(run_host_command(\@cmake_configure),
    "configure the cmake test project");
 ok(run_host_command(["cmake", "--build", $cmake_build_dir, "--config", "Release"]),
    "build the cmake test project");
+# Run a command and show its output whether it succeeds or not
+sub run_diag_command {
+    my ($command) = @_;
+    my ($success, $error, $output) =
+        IPC::Cmd::run(command => $command);
+    diag(join("", @{$output})) if defined $output;
+    diag($error) if !$success && defined $error;
+}
+
+# Diagnose a failing ctest run: show where the dummy binaries actually
+# landed, and try running one directly, which discriminates "binary not
+# where ctest looked for it" from "binary cannot be executed".
+sub diagnose_cmake_build {
+    my ($dir) = @_;
+
+    diag("Contents of $dir:");
+    diag("  $_") foreach sort glob("$dir/* $dir/*/*");
+    # $Config{_exe} is the executable suffix on platforms that have one
+    # ('.exe' on Windows, empty on Unix)
+    my @exes = grep { -f $_ && !/\.(ilk|pdb|lib|exp)$/
+                      && ($Config{_exe} eq '' || /\Q$Config{_exe}\E$/i) }
+               glob("$dir/ossl_config_dummy_vars*"
+                    . " $dir/*/ossl_config_dummy_vars*");
+    if (@exes) {
+        if ($^O eq 'MSWin32') {
+            # Name what kills the binary: the effective PATH, and the
+            # resolvability of the DLLs the binary imports.  The CRT
+            # DLL names vary with the Visual Studio version
+            # (msvcr120.dll for VS2013, vcruntime140.dll and
+            # ucrtbase.dll for VS2015 and later), so take the list from
+            # the binary itself rather than hard-coding it.
+            run_diag_command(["cmd", "/c", "set", "PATH"]);
+            my @imports;
+            if (IPC::Cmd::can_run("dumpbin")) {
+                my ($success, $error, $output) =
+                    IPC::Cmd::run(command =>
+                                  ["dumpbin", "/dependents", $exes[0]]);
+                diag(join("", @{$output})) if defined $output;
+                diag($error) if !$success && defined $error;
+                if ($success) {
+                    my %seen;
+                    @imports =
+                        grep { !$seen{lc $_}++ }
+                        map { /^\s+(\S+\.dll)\s*$/i ? ($1) : () }
+                        @{$output};
+                }
+            }
+            if (@imports) {
+                run_diag_command(["where", $_]) foreach @imports;
+            } else {
+                # dumpbin unavailable or failed; probe the CRT naming
+                # patterns known to date
+                run_diag_command(["where", "msvcr*.dll"]);
+                run_diag_command(["where", "vcruntime*.dll"]);
+                run_diag_command(["where", "ucrtbase.dll"]);
+            }
+        }
+        diag("running $exes[0] directly:");
+        run_host_command([$exes[0]]);
+    } else {
+        diag("no ossl_config_dummy_vars binary found");
+    }
+}
+
 ok(run_host_command(["ctest", "--test-dir", $cmake_build_dir,
                      "-C", "Release", "--output-on-failure"]),
-   "run the cmake test project");
+   "run the cmake test project")
+    or diagnose_cmake_build($cmake_build_dir);
